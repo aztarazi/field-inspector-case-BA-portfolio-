@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Прототип интеграции «Полевой инспектор» - LIMS / REST API / MS SQL</title>
+    <!-- Подключаем Tailwind CSS для красивого и современного дизайна -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Подключаем библиотеку для генерации честных QR-кодов -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans antialiased pdf-page">
+
+    <!-- Шапка -->
+    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50 px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div class="bg-amber-500 text-slate-950 font-black px-3 py-1 rounded tracking-wider text-xl">CO</div>
+            <h1 class="text-lg font-semibold text-slate-200">Интеграционный прототип: Модуль «Полевой Инспектор»</h1>
+        </div>
+        <div class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded-full">
+            Контур: <span class="text-emerald-400 font-mono">UAT-Environment</span>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- ЛЕВАЯ КОЛОНКА: Интерфейс Планшета Инспектора (Бизнес-слой) -->
+        <section class="lg:col-span-5 bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+            <div>
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-amber-400 font-bold tracking-wide uppercase text-sm">Экран планшета инспектора</h2>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400">
+                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Online
+                    </span>
+                </div>
+
+                <!-- Форма забора пробы -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">ID Инспектора</label>
+                        <input type="text" id="inspectorId" value="EMP-7705" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-amber-500 font-mono text-sm" readonly>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Договор (назначенные задания)</label>
+                        <select id="contractRef" onchange="syncClientFromContract()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-amber-500 font-mono text-sm truncate">
+                            <option value="CO-ALT-4422" data-bin="123456789012" data-client="ТОО «АлтайНефть»">CO-ALT-4422 - ТОО «АлтайНефть»</option>
+                            <option value="CO-ATY-7781" data-bin="980140000311" data-client="АО «Атырау Рефайнери»">CO-ATY-7781 - АО «Атырау Рефайнери»</option>
+                            <option value="CO-AKT-3290" data-bin="050340002214" data-client="ТОО «Актобе Грейн»">CO-AKT-3290 - ТОО «Актобе Грейн»</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">БИН клиента <span class="text-slate-600 normal-case font-normal">(из договора)</span></label>
+                        <input type="text" id="clientBin" value="123456789012" readonly title="Подтягивается из выбранного договора, не редактируется вручную" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-400 cursor-not-allowed focus:outline-none font-mono text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Тип материала</label>
+                        <select id="materialType" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-amber-500 text-sm">
+                            <option value="Crude Oil">Crude Oil (Нефть сырая)</option>
+                            <option value="Diesel Fuel">Diesel Fuel (Дизельное топливо)</option>
+                            <option value="Wheat Grade 3">Wheat Grade 3 (Пшеница 3 класс)</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Объем (Литры/Кг)</label>
+                            <input type="number" id="volume" value="1.5" step="0.1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-amber-500 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Номер пломбы сейф-пакета</label>
+                            <input type="text" id="sealId" value="SEAL-998822" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-300 focus:outline-none focus:border-amber-500 font-mono text-sm">
+                        </div>
+                    </div>
+
+                    <div class="pt-2">
+                        <div class="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50 space-y-2">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[11px] text-slate-500 whitespace-nowrap">Геопозиция (GPS):</span>
+                                <span class="font-mono text-slate-400 text-[11px]" id="geoLabel">44.5492, 34.2910</span>
+                                <button type="button" onclick="captureGeo()" class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-0.5 rounded transition-colors cursor-pointer">Обновить</button>
+                            </div>
+                            <div class="text-[11px] text-slate-500 flex justify-between">
+                                <span>GUID пробы (Генерируется):</span>
+                                <span class="font-mono text-slate-400 text-[10px]" id="guidLabel">Нажмите "Зафиксировать"</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Кнопка отправки -->
+            <div class="mt-6">
+                <button onclick="processIntegration()" class="w-full bg-amber-500 hover:bg-amber-600 active:scale-[0.98] transition-all text-slate-950 font-bold py-3 px-4 rounded-xl shadow-lg shadow-amber-500/10 flex justify-center items-center gap-2 cursor-pointer">
+                    Зафиксировать пробу и отправить по API
+                </button>
+            </div>
+        </section>
+
+        <!-- ПРАВАЯ КОЛОНКА: Техническая подкапотка (Системный слой) -->
+        <section class="lg:col-span-7 space-y-6">
+            
+            <!-- Вкладки сверху -->
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-emerald-400 font-bold tracking-wide uppercase text-sm flex items-center gap-2">
+                        <span>Outgoing REST API Payload</span>
+                        <span class="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-mono">POST /api/v1/samples</span>
+                    </h3>
+                    <span class="text-xs text-slate-500">Формат: JSON (UTF-8)</span>
+                </div>
+                <div class="relative">
+                    <pre class="bg-slate-950 rounded-xl p-4 overflow-x-auto text-xs font-mono text-emerald-400 border border-slate-900 max-h-[220px]" id="jsonViewer">// Здесь отобразится сгенерированный аналитиком JSON-пакет после клика по кнопке</pre>
+                </div>
+            </div>
+
+            <!-- Валидация в БД MS SQL -->
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-blue-400 font-bold tracking-wide uppercase text-sm flex items-center gap-2">
+                        <span>Проверка доставки в БД MS SQL Server</span>
+                        <span class="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded font-mono">T-SQL Валидация</span>
+                    </h3>
+                    <span class="text-xs text-slate-500">Схема: dbo.Samples</span>
+                </div>
+                <pre class="bg-slate-950 rounded-xl p-4 overflow-x-auto text-xs font-mono text-blue-300 border border-slate-900" id="sqlViewer">-- Кликни на кнопку слева, чтобы автоматически составить SQL-запрос под параметры формы</pre>
+            </div>
+
+            <!-- Результат / Имитация принтера QR-кодов -->
+            <div id="resultBlock" class="bg-slate-800 border border-emerald-500/30 rounded-2xl p-6 shadow-xl hidden transition-all duration-300">
+                <div class="flex items-start gap-6">
+                    <div class="bg-white p-3 rounded-xl inline-block" id="qrcode"></div>
+                    <div class="space-y-2 flex-1">
+                        <h4 class="text-emerald-400 font-bold text-base">Интеграция успешна! (HTTP 201 Created)</h4>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Пакет успешно доставлен в центральную LIMS компании. Данные смапплены в СУБД MS SQL. На мобильном термопринтере инспектора распечатан QR-код для наклейки на сейф-пакет с пробой.
+                        </p>
+                        <div class="text-[11px] font-mono text-slate-500 pt-1">
+                            Response: <span class="text-emerald-400">{"status": "success", "db_row_inserted": 1}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Скрипт для симуляции логики -->
+    <script>
+        // Функция для генерации случайного GUID (RFC 4122, v4)
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        // БИН клиента не вводится вручную, а подтягивается из выбранного договора
+        // (договор уже заведён в CRM/LIMS, клиент известен - исключаем ручной ввод и ошибки)
+        function syncClientFromContract() {
+            const sel = document.getElementById('contractRef');
+            const opt = sel.options[sel.selectedIndex];
+            document.getElementById('clientBin').value = opt.getAttribute('data-bin');
+        }
+        // Инициализация при загрузке страницы
+        syncClientFromContract();
+
+        // Текущая геопозиция инспектора (источник истины для UI и payload)
+        let currentGeo = { lat: 44.5492, lng: 34.2910 };
+
+        // Имитация снятия координат с GPS планшета
+        function captureGeo() {
+            currentGeo = {
+                lat: +(44.5492 + (Math.random() - 0.5) * 0.01).toFixed(4),
+                lng: +(34.2910 + (Math.random() - 0.5) * 0.01).toFixed(4)
+            };
+            document.getElementById('geoLabel').innerText = `${currentGeo.lat}, ${currentGeo.lng}`;
+        }
+
+        function processIntegration() {
+            // Собираем данные с формы
+            const guid = generateUUID();
+            const inspector = document.getElementById('inspectorId').value;
+            const contract = document.getElementById('contractRef').value;
+            const clientBin = document.getElementById('clientBin').value;
+            const material = document.getElementById('materialType').value;
+            const vol = document.getElementById('volume').value;
+            const seal = document.getElementById('sealId').value;
+            const now = new Date().toISOString();
+
+            // Обновляем метки в UI планшета
+            document.getElementById('guidLabel').innerText = guid.substring(0, 18) + '...';
+
+            // 1. Формируем JSON интеграции (Data Mapping в действии)
+            const payload = {
+                "sampleMetadata": {
+                    "sampleGuid": guid,
+                    "inspectorStaffId": inspector,
+                    "timestampLocation": now
+                },
+                "samplingContext": {
+                    "contractReference": contract,
+                    "clientBin": clientBin,
+                    "locationCoordinates": {
+                        "latitude": String(currentGeo.lat),
+                        "longitude": String(currentGeo.lng)
+                    }
+                },
+                "sampleDetails": {
+                    "materialType": material,
+                    "volumeLiters": parseFloat(vol),
+                    "containerType": "Plastic Bottle Sealed",
+                    "sealNumber": seal
+                }
+            };
+
+            // Выводим JSON на экран
+            document.getElementById('jsonViewer').innerText = JSON.stringify(payload, null, 2);
+
+            // 2. Проверочный SELECT: подтверждаем, что строка реально записалась в dbo.Samples
+            const sqlQuery = `-- Проверка доставки: появилась ли строка пробы в целевой таблице?\n` +
+                             `SELECT  Sample_GUID, Client_BIN, Contract_Ref, Seal_Id, Collected_At\n` +
+                             `FROM    dbo.Samples\n` +
+                             `WHERE   Sample_GUID = '${guid}';`;
+
+            document.getElementById('sqlViewer').innerText = sqlQuery;
+
+            // 3. Генерируем QR-код на основе GUID (имитация печати пломбы)
+            const qrContainer = document.getElementById("qrcode");
+            qrContainer.innerHTML = ""; // Очищаем старый
+            new QRCode(qrContainer, {
+                text: guid,
+                width: 90,
+                height: 90,
+                colorDark : "#0f172a",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            // Показываем блок успеха
+            const resultBlock = document.getElementById('resultBlock');
+            resultBlock.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
