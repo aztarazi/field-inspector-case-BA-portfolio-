@@ -6,7 +6,7 @@
 
 ## Живой прототип
 
-**[Открыть интерактивный прототип](https://aztarazi.github.io/field-inspector-case-BA-portfolio/)**
+**[Открыть интерактивный прототип](https://aztarazi.github.io/field-inspector-case-ba-portfolio/)**
 
 Рабочий макет сквозного потока: форма забора пробы -> JSON-payload для REST API -> проверочный SQL-запрос -> генерация QR-кода. Можно заполнить форму и нажать «Зафиксировать пробу».
 
